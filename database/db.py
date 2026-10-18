@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "spendly.db")
 
@@ -37,14 +37,24 @@ def init_db():
     conn.close()
 
 
-def seed_db():
+def create_user(name, email, password):
     conn = get_db()
     with conn:
-        count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        if count > 0:
-            conn.close()
-            return
+        conn.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            (name, email, generate_password_hash(password)),
+        )
+    conn.close()
 
+
+def seed_db():
+    conn = get_db()
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count > 0:
+        conn.close()
+        return
+
+    with conn:
         conn.execute(
             "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
             ("Demo User", "demo@spendly.com", generate_password_hash("demo123")),
