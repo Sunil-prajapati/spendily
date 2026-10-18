@@ -47,6 +47,24 @@ def create_user(name, email, password):
     conn.close()
 
 
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE id = ? LIMIT 1", (user_id,)
+    ).fetchone()
+    conn.close()
+    return user
+
+
+def get_user_by_email(email):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE email = ? LIMIT 1", (email,)
+    ).fetchone()
+    conn.close()
+    return user
+
+
 def seed_db():
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
