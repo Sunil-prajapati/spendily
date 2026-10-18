@@ -51,6 +51,7 @@ def register():
     except sqlite3.IntegrityError:
         return render_template("register.html", error="An account with that email already exists.")
 
+    flash("Account created! Please sign in.", "success")
     return redirect(url_for("login"))
 
 
