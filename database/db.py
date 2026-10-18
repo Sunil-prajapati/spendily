@@ -27,10 +27,10 @@ def init_db():
             CREATE TABLE IF NOT EXISTS expenses (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                title       TEXT    NOT NULL,
-                amount      REAL    NOT NULL CHECK (amount > 0),
-                category    TEXT    NOT NULL DEFAULT 'Other',
-                date        TEXT    NOT NULL DEFAULT (date('now')),
+                amount      REAL    NOT NULL,
+                category    TEXT    NOT NULL,
+                date        TEXT    NOT NULL,
+                description TEXT,
                 created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
             );
         """)
@@ -40,24 +40,32 @@ def init_db():
 def seed_db():
     conn = get_db()
     with conn:
+        count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        if count > 0:
+            conn.close()
+            return
+
         conn.execute(
-            "INSERT OR IGNORE INTO users (name, email, password_hash) VALUES (?, ?, ?)",
-            ("Demo User", "demo@example.com", generate_password_hash("password123")),
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            ("Demo User", "demo@spendly.com", generate_password_hash("demo123")),
         )
         user = conn.execute(
-            "SELECT id FROM users WHERE email = ?", ("demo@example.com",)
+            "SELECT id FROM users WHERE email = ?", ("demo@spendly.com",)
         ).fetchone()
         uid = user["id"]
 
         sample_expenses = [
-            (uid, "Groceries",        45.50,  "Food",          "2026-10-01"),
-            (uid, "Netflix",          15.99,  "Entertainment", "2026-10-03"),
-            (uid, "Bus pass",         30.00,  "Transport",     "2026-10-05"),
-            (uid, "Coffee",            4.20,  "Food",          "2026-10-07"),
-            (uid, "Electricity bill", 82.00,  "Utilities",     "2026-10-10"),
+            (uid, 45.50,  "Food",          "2026-10-01", "Groceries"),
+            (uid,  4.20,  "Food",          "2026-10-04", "Coffee"),
+            (uid, 30.00,  "Transport",     "2026-10-05", "Bus pass"),
+            (uid, 82.00,  "Bills",         "2026-10-08", "Electricity bill"),
+            (uid, 25.00,  "Health",        "2026-10-10", "Pharmacy"),
+            (uid, 15.99,  "Entertainment", "2026-10-12", "Netflix"),
+            (uid, 60.00,  "Shopping",      "2026-10-14", "Clothing"),
+            (uid, 12.00,  "Other",         "2026-10-16", "Miscellaneous"),
         ]
         conn.executemany(
-            "INSERT INTO expenses (user_id, title, amount, category, date) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO expenses (user_id, amount, category, date, description) VALUES (?, ?, ?, ?, ?)",
             sample_expenses,
         )
     conn.close()
