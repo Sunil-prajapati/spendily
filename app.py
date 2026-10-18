@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 import sqlite3
 from database.db import get_db, init_db, seed_db, create_user
 
@@ -38,6 +38,7 @@ def register():
     except sqlite3.IntegrityError:
         return render_template("register.html", error="An account with that email already exists.")
 
+    flash("Account created! Please sign in.", "success")
     return redirect(url_for("login"))
 
 
