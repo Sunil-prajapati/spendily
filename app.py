@@ -1,8 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
+from datetime import datetime
 from functools import wraps
 from werkzeug.security import check_password_hash
-from database.db import get_db, init_db, seed_db, create_user, get_user_by_email, get_user_by_id
+from database.db import (
+    get_db,
+    init_db,
+    seed_db,
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    get_expense_summary,
+    get_category_breakdown,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-change-in-prod"
@@ -87,7 +97,34 @@ def logout():
 @app.route("/profile")
 @login_required
 def profile():
-    return "Profile page — coming in Step 4"
+    user_row = get_user_by_id(session["user_id"])
+    summary = get_expense_summary(session["user_id"])
+    breakdown_rows = get_category_breakdown(session["user_id"])
+
+    member_since = datetime.strptime(
+        user_row["created_at"], "%Y-%m-%d %H:%M:%S"
+    ).strftime("%B %d, %Y")
+
+    user = {"name": user_row["name"], "email": user_row["email"]}
+
+    max_total = max((row["total"] for row in breakdown_rows), default=0)
+    category_breakdown = [
+        {
+            "category": row["category"],
+            "total_display": f"₹{row['total']:,.2f}",
+            "percent": max(round((row["total"] / max_total) * 100), 4) if max_total else 0,
+        }
+        for row in breakdown_rows
+    ]
+
+    return render_template(
+        "profile.html",
+        user=user,
+        member_since=member_since,
+        summary=summary,
+        total_spent_display=f"₹{summary['total_spent']:,.2f}",
+        category_breakdown=category_breakdown,
+    )
 
 
 @app.route("/expenses/add")

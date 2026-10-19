@@ -65,6 +65,36 @@ def get_user_by_email(email):
     return user
 
 
+def get_expense_summary(user_id):
+    conn = get_db()
+    summary = conn.execute(
+        """
+        SELECT COUNT(*) AS expense_count, COALESCE(SUM(amount), 0) AS total_spent
+        FROM expenses
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    return summary
+
+
+def get_category_breakdown(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT category, COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
 def seed_db():
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
