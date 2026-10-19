@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 from werkzeug.security import check_password_hash
 from database.db import (
@@ -30,6 +30,36 @@ def login_required(f):
 with app.app_context():
     init_db()
     seed_db()
+
+
+def parse_date_filter(raw_from, raw_to):
+    """Validate the from/to query params. Returns (date_from, date_to, error)."""
+    values = {}
+    error = None
+    for key, raw in (("from", raw_from), ("to", raw_to)):
+        if not raw:
+            continue
+        try:
+            values[key] = datetime.strptime(raw, "%Y-%m-%d").date()
+        except ValueError:
+            error = "Invalid date. Use the YYYY-MM-DD format."
+
+    date_from = values.get("from")
+    date_to = values.get("to")
+    if date_from and date_to and date_from > date_to:
+        return None, None, "Start date must be on or before the end date."
+    return date_from, date_to, error
+
+
+def format_range_label(date_from, date_to):
+    fmt = "%d %b %Y"
+    if date_from and date_to:
+        return f"{date_from.strftime(fmt)} – {date_to.strftime(fmt)}"
+    if date_from:
+        return f"From {date_from.strftime(fmt)}"
+    if date_to:
+        return f"Until {date_to.strftime(fmt)}"
+    return "All time"
 
 
 # ------------------------------------------------------------------ #
@@ -98,8 +128,21 @@ def logout():
 @login_required
 def profile():
     user_row = get_user_by_id(session["user_id"])
-    summary = get_expense_summary(session["user_id"])
-    breakdown_rows = get_category_breakdown(session["user_id"])
+    date_from, date_to, filter_error = parse_date_filter(
+        request.args.get("from", "").strip(), request.args.get("to", "").strip()
+    )
+    iso_from = date_from.isoformat() if date_from else None
+    iso_to = date_to.isoformat() if date_to else None
+
+    summary = get_expense_summary(session["user_id"], iso_from, iso_to)
+    breakdown_rows = get_category_breakdown(session["user_id"], iso_from, iso_to)
+
+    today = date.today()
+    presets = [
+        {"label": "This Month", "params": {"from": today.replace(day=1).isoformat(), "to": today.isoformat()}},
+        {"label": "Last 30 Days", "params": {"from": (today - timedelta(days=29)).isoformat(), "to": today.isoformat()}},
+        {"label": "All Time", "params": {}},
+    ]
 
     member_since = datetime.strptime(
         user_row["created_at"], "%Y-%m-%d %H:%M:%S"
@@ -124,6 +167,12 @@ def profile():
         summary=summary,
         total_spent_display=f"₹{summary['total_spent']:,.2f}",
         category_breakdown=category_breakdown,
+        date_from=iso_from or "",
+        date_to=iso_to or "",
+        filter_error=filter_error,
+        is_filtered=bool(date_from or date_to),
+        range_label=format_range_label(date_from, date_to),
+        presets=presets,
     )
 
 

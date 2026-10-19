@@ -65,31 +65,38 @@ def get_user_by_email(email):
     return user
 
 
-def get_expense_summary(user_id):
+def _expense_filter(user_id, date_from=None, date_to=None):
+    """Return a WHERE clause (fixed fragments only) and its parameters."""
+    clause = "user_id = ?"
+    params = [user_id]
+    if date_from:
+        clause += " AND date >= ?"
+        params.append(date_from)
+    if date_to:
+        clause += " AND date <= ?"
+        params.append(date_to)
+    return clause, params
+
+
+def get_expense_summary(user_id, date_from=None, date_to=None):
+    where, params = _expense_filter(user_id, date_from, date_to)
     conn = get_db()
     summary = conn.execute(
-        """
-        SELECT COUNT(*) AS expense_count, COALESCE(SUM(amount), 0) AS total_spent
-        FROM expenses
-        WHERE user_id = ?
-        """,
-        (user_id,),
+        "SELECT COUNT(*) AS expense_count, COALESCE(SUM(amount), 0) AS total_spent "
+        "FROM expenses WHERE " + where,
+        params,
     ).fetchone()
     conn.close()
     return summary
 
 
-def get_category_breakdown(user_id):
+def get_category_breakdown(user_id, date_from=None, date_to=None):
+    where, params = _expense_filter(user_id, date_from, date_to)
     conn = get_db()
     rows = conn.execute(
-        """
-        SELECT category, COALESCE(SUM(amount), 0) AS total
-        FROM expenses
-        WHERE user_id = ?
-        GROUP BY category
-        ORDER BY total DESC
-        """,
-        (user_id,),
+        "SELECT category, COALESCE(SUM(amount), 0) AS total "
+        "FROM expenses WHERE " + where + " GROUP BY category ORDER BY total DESC",
+        params,
     ).fetchall()
     conn.close()
     return rows
